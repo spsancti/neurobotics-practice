@@ -3,12 +3,14 @@ from matplotlib import pyplot as plt
 import numpy as np
 import layers
 from layers import relu_forward
+from layers import maxpool_forward
 
 
 def main():
     image = misc.face()
 
     # normalize input image (kinda of)
+    # do normalize every time!
     image = image / np.max(image)
 
     # sobel kernel here
@@ -56,6 +58,27 @@ def main():
     image1 = np.swapaxes(image1, 1, 3)
     image1 = np.swapaxes(image1, 2, 3)
 
+    stuff = np.array(
+        [
+            [
+                [
+                    [.7]
+                ],
+                [
+                    [.3]
+                ]
+            ],
+            [
+                [
+                    [.3]
+                ],
+                [
+                    [.7]
+                ]
+            ]
+        ])
+
+
     # averaging kernel (1x1 convolution)
     avg = np.array(
         [
@@ -71,10 +94,23 @@ def main():
 
     # do our "neural network"
     # basically, just convolutions
-    image = layers.conv_forward(image1, sobel, 0)
-    image = relu_forward(image)
-    image = layers.conv_forward(image, avg, 0)
-    image = relu_forward(image)
+    image = image1
+
+    image, cache = layers.conv_forward(image, sobel, 0)
+    image, cache = layers.relu_forward(image)
+    print(image.shape)
+    # image, cache = maxpool_forward(image, size=2, stride=2)
+    print(image.shape)
+
+    image, cache = layers.conv_forward(image, stuff, 0, stride=1, padding=0)
+    image, cache = layers.relu_forward(image)
+
+    image, cache = maxpool_forward(image, size=2, stride=2)
+    image = layers.maxpool_backward(image, cache)
+
+    image, cache = layers.conv_forward(image, avg, 0)
+    image, cache = layers.sigmoid_forward(image)
+
 
     # get rid of extra 1d dimensions for presentation purposes
     print(image.shape)
