@@ -54,7 +54,6 @@ def conv_backward(dout, cache):
 
     return dX, dK, db
 
-
 def relu_forward(X):
     cache = X
     return np.maximum(0, X), cache
