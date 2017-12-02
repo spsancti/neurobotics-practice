@@ -28,12 +28,10 @@ def sgd(nn, X_train, y_train, val_set=None, alpha=1e-3, mb_size=256, n_iter=2000
     for iter in range(1, n_iter + 1):
         idx = np.random.randint(0, len(minibatches))
         X_mini, y_mini = minibatches[idx]
-
         grad, loss = nn.train_step(X_mini, y_mini)
 
         if iter % print_after == 0:
-            val_acc = accuracy(y_val, nn.nn_forward(X_val))
-            print('Iter-{} loss: {}'.format(iter, val_acc))
+            print('Iter-{} loss: {}'.format(iter, loss))
 
         for layer in grad:
             nn.model[layer] -= alpha * grad[layer]

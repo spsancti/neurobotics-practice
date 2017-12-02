@@ -133,15 +133,26 @@ def maxpool_backward(dout, cache):
 
     return dX
 
+def dropout_forward(X, p_dropout):
+    u = np.random.binomial(1, p_dropout, size=X.shape) / p_dropout
+    out = X * u
+    cache = u
+    return out, cache
+
+
+def dropout_backward(dout, cache):
+    dX = dout * cache
+    return dX
+
+
+
+
+
+
 
 def softmax_forward(X):
     eX = np.exp((X.T - np.max(X, axis=1)).T)
     return (eX.T / eX.sum(axis=1)).T
-
-
-def softmax_backward(dout, cache):
-    pass
-
 
 def logistic_loss_forward(out, Y):
     m = out.shape[0]
@@ -157,6 +168,27 @@ def logistic_loss_backward(out, Y):
 
     grad_y = softmax_forward(out)
     grad_y[range(m), Y] -= 1.
+    grad_y /= m
+
+    return grad_y
+
+
+def onehot(labels):
+    y = np.zeros([labels.size, np.max(labels) + 1])
+    y[range(labels.size), labels] = 1.
+    return y
+
+def squared_loss(y_pred, y_train, lam=1e-3):
+    m = y_pred.shape[0]
+
+    data_loss = 0.5 * np.sum((onehot(y_train) - y_pred)**2) / m
+
+    return data_loss
+
+
+def dsquared_loss(y_pred, y_train):
+    m = y_pred.shape[0]
+    grad_y = y_pred - onehot(y_train)
     grad_y /= m
 
     return grad_y
