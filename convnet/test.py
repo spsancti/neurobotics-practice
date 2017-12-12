@@ -20,25 +20,27 @@ def __main():
     train = train.reshape(-1, *img_shape)
     test = test.reshape(-1, *img_shape)
 
-    nn = load_object("/home/btymchenko/Discovery/Neurality/trained/mnist_32_32x3x3_iter_150.pickle")
+    nn = load_object("/home/btymchenko/Discovery/Neurality/trained/mnist_keras__epoch_5_iter_400.pickle")
 
-    layer = nn.model["conv2"]
-    tr.plot_layer(layer, 0)
-
-    n = 640
+    n = 36
 
     image = np.asarray(test[:n]);
 
     out, cache = nn.nn_forward(image);
-    out = layers.softmax_forward(out)
-    out = np.argmax(out, axis=1)
+    nout = layers.softmax_forward(out)
+    nout = np.argmax(nout, axis=1)
     true = test_labels[:n]
 
-    print(out)
-    print(true)
-    diff = out - true
 
-    print(np.mean(diff))
+    _, image = nn.nn_backward(out, cache)
+    tr.plot_layer(image, 0)
+
+
+    print(nout)
+    print(true)
+    diff = ((nout - true) == True)
+
+    print(1. - np.mean(diff))
     plt.show()
 
 def main():
@@ -58,20 +60,19 @@ def main():
     train = train.reshape(-1, *img_shape)
     test = test.reshape(-1, *img_shape)
 
-    net = neural_net.NeuralNet(32)
-    #net = load_object("/home/btymchenko/Discovery/Neurality/trained/mnist_32_32x3x3_iter_150.pickle")
+    net = neural_net.NeuralNet()
+    #net = load_object("/home/btymchenko/Discovery/Neurality/trained/mnist_keras__iter_400.pickle")
 
     tr.sgd(net,
            train,
            train_labels,
-           "/home/btymchenko/Discovery/Neurality/trained/mnist_32_32x3x3_probe2",
+           "/home/btymchenko/Discovery/Neurality/trained/mnist_keras_",
            val_set=(test, test_labels),
-           print_after=10,
-           mb_size=256,
-           n_iter=1000,
-           alpha=1e-3,
-           save_after=10,
-           show_after=10
+           mb_size=128,
+           n_epoch=10,
+           alpha=1e-2,
+           save_after=100,
+           print_after=100,
            )
 
     # show this one!

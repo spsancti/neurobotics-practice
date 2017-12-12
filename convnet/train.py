@@ -7,13 +7,12 @@ def plot_layer(X, id):
     n, d, h, w = X.shape
 
     n_plots = int(np.ceil(np.sqrt(n)))
-    print(n_plots)
     f, ax = plt.subplots(n_plots, n_plots)
 
     for nx in range(n_plots):
         for ny in range(n_plots):
             if ny*n_plots + nx < n:
-                ax[nx, ny].imshow(X[ny*n_plots + nx][id], cmap='viridis')
+                ax[nx, ny].imshow(X[ny*n_plots + nx][id], cmap='magma')
             ax[nx, ny].axis('off')
     plt.show(block=False)
 
@@ -36,26 +35,39 @@ def get_minibatch(X, y, minibatch_size, shuffle=True):
 
     return minibatches
 
-def sgd(nn, X_train, y_train, filename, val_set=None, alpha=1e-3, mb_size=256, n_iter=2000, print_after=100, show_after=100, save_after=100):
-    minibatches = get_minibatch(X_train, y_train, mb_size)
+def sgd(nn, X_train, y_train, filename, val_set=None, alpha=1e-3, mb_size=128, n_epoch=10, print_after=100, show_after=100, save_after=100):
 
     if val_set:
         X_val, y_val = val_set
 
-    for iter in range(1, n_iter + 1):
-        idx = np.random.randint(0, len(minibatches))
-        X_mini, y_mini = minibatches[idx]
-        grad, loss = nn.train_step(X_mini, y_mini)
+    for epoch in range(1, n_epoch):
 
-        if iter % print_after == 0:
-            print('Iter-{} loss: {}'.format(iter, loss))
+        minibatches = get_minibatch(X_train, y_train, mb_size)
 
-        if iter % show_after == 0:
-            plot_layer(nn.model["conv1"], 0)
+        print('Epoch: {}'.format(epoch))
+        print('Iterations: {}'.format(len(minibatches)))
+        print('Alpha: {}'.format(alpha))
 
-        if iter % save_after == 0:
-            save_object(nn, filename + "_iter_" + str(iter) + ".pickle")
+        epoch_loss = 0.
 
-        for layer in grad:
-            nn.model[layer] -= alpha * grad[layer]
+        for iter in range(0, len(minibatches) - 1):
+
+            X_mini, y_mini = minibatches[iter]
+            grad, loss = nn.train_step(X_mini, y_mini)
+
+            epoch_loss += loss
+
+            if iter % print_after == 0:
+                print('Iter-{} loss: {}'.format(iter, loss))
+
+            if iter % save_after == 0:
+                save_object(nn, filename + "_epoch_" + str(epoch) + "_iter_" + str(iter) + ".pickle")
+
+            for layer in grad:
+                nn.model[layer] -= alpha * grad[layer]
+
+        alpha /= 2
+        plot_layer(nn.model["conv1"], 0)
+        print("Mean epoch loss: " + str(epoch_loss / len(minibatches)))
+
     return nn
