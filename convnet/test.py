@@ -11,65 +11,81 @@ def load_object(filename):
     with open(filename, 'rb') as input:
         return pickle.load(input)
 
-def __main():
-    mndata = mnist.MNIST('data', return_type='numpy', mode='rounded_binarized')
+def prepare_mnist():
+    mndata = mnist.MNIST('data', return_type='numpy', mode='vanilla')
     train, train_labels = mndata.load_training()
     test, test_labels = mndata.load_testing()
+
+    # normalize data to [-0.5, 0.5] as proposed by Hampel, 2015
+
+    max_train = np.max(train)
+    max_test = np.max(test)
+
+    train = train / max_train
+    test = test / max_test
+
+    train = train - .5
+    test  = test - .5
 
     img_shape = (1, 28, 28)
     train = train.reshape(-1, *img_shape)
     test = test.reshape(-1, *img_shape)
 
-    nn = load_object("/home/btymchenko/Discovery/Neurality/trained/mnist_keras__epoch_5_iter_400.pickle")
-
-    n = 36
-
-    image = np.asarray(test[:n]);
-
-    out, cache = nn.nn_forward(image);
-    nout = layers.softmax_forward(out)
-    nout = np.argmax(nout, axis=1)
-    true = test_labels[:n]
+    return train, train_labels, test, test_labels
 
 
-    _, image = nn.nn_backward(out, cache)
-    tr.plot_layer(image, 0)
+def test_nn():
+    train, train_labels, test, test_labels = prepare_mnist()
 
+    nn = load_object("/home/btymchenko/Discovery/Neurality/trained/new_mnist_keras__epoch_14_iter_400.pickle")
 
-    print(nout)
-    print(true)
-    diff = ((nout - true) == True)
+    n = 625
 
-    print(1. - np.mean(diff))
+    X = np.asarray(test[:n])
+    labels = test_labels[:n]
+
+    Y_predicted = nn.forward(X)
+    image_back  = nn.backward(Y_predicted)
+
+    labels_predicted = np.argmax(Y_predicted, axis=1)
+
+    tr.plot_batch(image_back, 0)
+
+    diff = (labels == labels_predicted)
+
+    print("Accuracy: ")
+    print(sum(diff) / len(labels_predicted))
     plt.show()
 
-def main():
-    # plt.ion()
-    # image = misc.face()
 
-    mndata = mnist.MNIST('data', return_type='numpy', mode='rounded_binarized')
-    train, train_labels = mndata.load_training()
-    test, test_labels = mndata.load_testing()
+def train_nn():
+    train, train_labels, test, test_labels = prepare_mnist()
 
-    mean = np.mean(train)
-    train = train - mean
-    mean = np.mean(test)
-    test = test - mean
+    net = neural_net.AdvancedNN()
 
-    img_shape = (1, 28, 28)
-    train = train.reshape(-1, *img_shape)
-    test = test.reshape(-1, *img_shape)
+    net.add(layers.Conv2D(32, 1, 3, 3))
+    net.add(layers.LReLU())
+    net.add(layers.MaxPooling(2, 2))
 
-    net = neural_net.NeuralNet()
-    #net = load_object("/home/btymchenko/Discovery/Neurality/trained/mnist_keras__iter_400.pickle")
+    net.add(layers.Flatten())
+
+    net.add(layers.Dropout(0.25))
+    net.add(layers.Dense(32*14*14, 128))
+    net.add(layers.LReLU())
+
+    net.add(layers.Dropout(0.5))
+    net.add(layers.Dense(128, 10))
+    net.add(layers.ReLU())
+
+    net = load_object("/home/btymchenko/Discovery/Neurality/trained/new_mnist_keras__epoch_14_iter_400.pickle")
 
     tr.sgd(net,
            train,
            train_labels,
-           "/home/btymchenko/Discovery/Neurality/trained/mnist_keras_",
+           "/home/btymchenko/Discovery/Neurality/trained/new_mnist_keras_",
            val_set=(test, test_labels),
            mb_size=128,
-           n_epoch=10,
+           n_epoch=15,
            alpha=1e-2,
            save_after=100,
            print_after=100,
@@ -81,4 +97,5 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    train_nn()
+    # test_nn()

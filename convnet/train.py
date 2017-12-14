@@ -3,18 +3,35 @@ from matplotlib import pyplot as plt
 from sklearn.utils import shuffle as skshuffle
 import pickle
 
-def plot_layer(X, id):
+def plot_batch(X, id):
     n, d, h, w = X.shape
 
     n_plots = int(np.ceil(np.sqrt(n)))
+
     f, ax = plt.subplots(n_plots, n_plots)
 
     for nx in range(n_plots):
         for ny in range(n_plots):
             if ny*n_plots + nx < n:
-                ax[nx, ny].imshow(X[ny*n_plots + nx][id], cmap='magma')
+                ax[nx, ny].imshow(X[ny*n_plots + nx][id], cmap='viridis')
             ax[nx, ny].axis('off')
     plt.show(block=False)
+
+
+def plot_layer(X, id):
+    n, d, h, w = X.shape
+
+    n_plots = int(np.ceil(np.sqrt(d)))
+
+    f, ax = plt.subplots(n_plots, n_plots)
+
+    for nx in range(n_plots):
+        for ny in range(n_plots):
+            if ny * n_plots + nx < d:
+                ax[nx, ny].imshow(X[id][ny * n_plots + nx], cmap='viridis')
+            ax[nx, ny].axis('off')
+    plt.show(block=False)
+
 
 def save_object(obj, filename):
     with open(filename, 'wb') as output:
@@ -53,7 +70,8 @@ def sgd(nn, X_train, y_train, filename, val_set=None, alpha=1e-3, mb_size=128, n
         for iter in range(0, len(minibatches) - 1):
 
             X_mini, y_mini = minibatches[iter]
-            grad, loss = nn.train_step(X_mini, y_mini)
+            loss = nn.train_step(X_mini, y_mini)
+            nn.sgd_update(alpha=alpha)
 
             epoch_loss += loss
 
@@ -63,11 +81,6 @@ def sgd(nn, X_train, y_train, filename, val_set=None, alpha=1e-3, mb_size=128, n
             if iter % save_after == 0:
                 save_object(nn, filename + "_epoch_" + str(epoch) + "_iter_" + str(iter) + ".pickle")
 
-            for layer in grad:
-                nn.model[layer] -= alpha * grad[layer]
-
-        alpha /= 2
-        plot_layer(nn.model["conv1"], 0)
         print("Mean epoch loss: " + str(epoch_loss / len(minibatches)))
 
     return nn
