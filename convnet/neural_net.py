@@ -23,9 +23,10 @@ class AdvancedNN:
 
         return interlayer_result
 
-    def sgd_update(self, alpha=1e-3):
+    def update(self, update_fun):
         for layer in self.model:
-            layer.sgd_update(alpha=alpha)
+            layer.update(update_fun)
+
 
     def train_step(self, X, Y):
         out = self.forward(X, train=True)

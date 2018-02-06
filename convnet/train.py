@@ -13,7 +13,7 @@ def plot_batch(X, id):
     for nx in range(n_plots):
         for ny in range(n_plots):
             if ny*n_plots + nx < n:
-                ax[nx, ny].imshow(X[ny*n_plots + nx][id], cmap='viridis')
+                ax[nx, ny].imshow(X[ny*n_plots + nx][id], cmap='gray')
             ax[nx, ny].axis('off')
     plt.show(block=False)
 
@@ -52,35 +52,67 @@ def get_minibatch(X, y, minibatch_size, shuffle=True):
 
     return minibatches
 
-def sgd(nn, X_train, y_train, filename, val_set=None, alpha=1e-3, mb_size=128, n_epoch=10, print_after=100, show_after=100, save_after=100):
+def test(nn, X_test, Y_test):
+    minibatches = get_minibatch(X_test, Y_test, 128)
+
+    overall_accuracy = 0.
+
+    for i in range(0, len(minibatches)):
+        x_i, y_i = minibatches[i]
+
+        Y_predicted = nn.forward(x_i)
+        labels_predicted = np.argmax(Y_predicted, axis=1)
+
+        diff = (y_i == labels_predicted)
+        overall_accuracy += sum(diff) / len(labels_predicted)
+
+    overall_accuracy /= len(minibatches)
+
+    return overall_accuracy
+
+
+
+def sgd(nn, X_train, y_train, filename, val_set=None, alpha=1e-3, n_epoch=10, print_after=100):
 
     if val_set:
         X_val, y_val = val_set
+    else:
+        X_val, y_val = None, None
 
-    for epoch in range(1, n_epoch):
+    for epoch in range(4, n_epoch + 4):
 
+        mb_size = 2 ** epoch
+        e_alpha = alpha * mb_size
         minibatches = get_minibatch(X_train, y_train, mb_size)
 
         print('Epoch: {}'.format(epoch))
         print('Iterations: {}'.format(len(minibatches)))
-        print('Alpha: {}'.format(alpha))
+        print('Alpha: {}'.format(e_alpha))
 
         epoch_loss = 0.
 
-        for iter in range(0, len(minibatches) - 1):
+        for iter in range(0, len(minibatches)):
 
             X_mini, y_mini = minibatches[iter]
             loss = nn.train_step(X_mini, y_mini)
-            nn.sgd_update(alpha=alpha)
+
+            def upd(W, dW):
+                W -= e_alpha * dW
+
+            nn.update(upd)
 
             epoch_loss += loss
 
             if iter % print_after == 0:
                 print('Iter-{} loss: {}'.format(iter, loss))
 
-            if iter % save_after == 0:
-                save_object(nn, filename + "_epoch_" + str(epoch) + "_iter_" + str(iter) + ".pickle")
+            if val_set and iter % (len(minibatches) / 10) == 0:
+                print('Iter-{} accuracy: {}'.format(iter, test(nn, X_val, y_val)))
 
+        save_object(nn, filename + "_epoch_" + str(epoch) + ".pickle")
         print("Mean epoch loss: " + str(epoch_loss / len(minibatches)))
+
+        if val_set:
+            print('Epoch accuracy: {}'.format(test(nn, X_val, y_val)))
 
     return nn

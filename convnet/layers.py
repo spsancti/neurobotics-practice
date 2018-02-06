@@ -1,45 +1,52 @@
 import numpy as np
+import train as tr
 from im2col import im2col_indices
 from im2col import col2im_indices
 
 class Layer(object):
 
+    def __init__(self):
+        self.params = dict()
+        self.dParams = dict()
+
     def forward(self, X, train=False):
         pass
 
     def backward(self, grad, train=False):
         pass
 
-    def sgd_update(self, alpha=1e-3):
-        pass
+    def update(self, update_fun):
+        for param in self.params:
+            update_fun(self.params[param], self.dParams[param])
 
 
 class Dense(Layer):
     def __init__(self, inDim, outDim):
-        self.W = np.random.randn(inDim, outDim) * np.sqrt(2. / inDim)
-        self.b = np.zeros((1, outDim))
-        self.dW = np.zeros_like(self.W)
-        self.db = np.zeros_like(self.b)
+        super().__init__()
+        self.params = dict(
+            W = np.random.randn(inDim, outDim) * np.sqrt(1. / inDim),
+            b = np.zeros((1, outDim))
+        )
+        self.dParams = dict(
+            W = np.zeros_like(self.params["W"]),
+            b = np.zeros_like(self.params["b"])
+        )
+
         self.cache = None
 
     def forward(self, X, train=False):
-        out = np.dot(X, self.W) + self.b
-        self.cache = (self.W, X)
+        out = np.dot(X, self.params["W"]) + self.params["b"]
+        self.cache = (self.params["W"], X)
         return out
 
     def backward(self, grad, train=False):
         W, h = self.cache
 
-        self.dW = np.dot(h.T, grad)
-        self.db = np.sum(grad, axis=0)
+        self.dParams["W"] = np.dot(h.T, grad)
+        self.dParams["b"] = np.sum(grad, axis=0)
 
         dX = np.dot(grad, W.T)
         return dX
-
-    def sgd_update(self, alpha=1e-3):
-        self.W -= alpha * self.dW
-        self.b -= alpha * self.db
-
 
 class BatchNorm(Layer):
 
@@ -49,28 +56,30 @@ class BatchNorm(Layer):
     def backward(self, grad, train=False):
         pass
 
-    def sgd_update(self, alpha=1e-3):
-        pass
-
-
 class Conv2D(Layer):
     def __init__(self, n_filters, d_filters, h_filter=3, w_filter=3, padding=1, stride=1):
-        self.W = np.random.randn(n_filters, d_filters, h_filter, w_filter) * np.sqrt(2. / n_filters)
-        self.b = np.zeros((n_filters, 1))
-        self.dW = np.zeros_like(self.W)
-        self.db = np.zeros_like(self.b)
+        super().__init__()
+        self.params = dict(
+            W = np.random.randn(n_filters, d_filters, h_filter, w_filter) * np.sqrt(1. / n_filters),
+            b = np.zeros((n_filters, 1))
+        )
+        self.dParams = dict(
+            W = np.zeros_like(self.params["W"]),
+            b = np.zeros_like(self.params["b"])
+        )
+
         self.padding = padding
         self.stride = stride
         self.cache = None
 
     def forward(self, X, train=False):
         n_x, d_x, h_x, w_x = X.shape
-        n_w, d_w, h_w, w_w = self.W.shape
+        n_w, d_w, h_w, w_w = self.params["W"].shape
 
         X_col = im2col_indices(X, h_w, w_w, padding=self.padding, stride=self.stride)
-        W_col = self.W.reshape(n_w, -1)
+        W_col = self.params["W"].reshape(n_w, -1)
 
-        Y_col = np.dot(W_col, X_col) + self.b
+        Y_col = np.dot(W_col, X_col) + self.params["b"]
 
         h_out = int((h_x - h_w + 2 * self.padding) / self.stride + 1)
         w_out = int((w_x - w_w + 2 * self.padding) / self.stride + 1)
@@ -79,32 +88,31 @@ class Conv2D(Layer):
         Y = Y.transpose(3, 0, 1, 2)
 
         self.cache = (X, X_col)
+
+        #tr.plot_batch(self.params["W"], 0)
+
         return Y
 
     def backward(self, grad, train=False):
         X, X_col = self.cache
-        n_filter, d_filter, h_filter, w_filter = self.W.shape
+        n_filter, d_filter, h_filter, w_filter = self.params["W"].shape
 
-        self.dB = np.sum(grad, axis=(0, 2, 3))
-        self.dB = self.dB.reshape(n_filter, -1)
+        self.dParams["b"] = np.sum(grad, axis=(0, 2, 3))
+        self.dParams["b"] = self.params["b"].reshape(n_filter, -1)
 
         grad_reshaped = grad.transpose(1, 2, 3, 0).reshape(n_filter, -1)
-        self.dW = np.dot(grad_reshaped, X_col.T)
-        self.dW = self.dW.reshape(self.W.shape)
+        self.dParams["W"] = np.dot(grad_reshaped, X_col.T)
+        self.dParams["W"] = self.dParams["W"].reshape(self.params["W"].shape)
 
-        W_reshape = self.W.reshape(n_filter, -1)
+        W_reshape = self.params["W"].reshape(n_filter, -1)
         dX_col = np.dot(W_reshape.T, grad_reshaped)
         dX = col2im_indices(dX_col, X.shape, h_filter, w_filter, padding=self.padding, stride=self.stride)
 
         return dX
 
-    def sgd_update(self, alpha=1e-3):
-        self.W -= alpha * self.dW
-        self.b -= alpha * self.db
-
-
 class ReLU(Layer):
     def __init__(self):
+        super().__init__()
         self.cache = None
 
     def forward(self, X, train=False):
@@ -117,13 +125,10 @@ class ReLU(Layer):
         dX[X <= 0] = 0
         return dX
 
-    def sgd_update(self, alpha=1e-3):
-        # no parameters to update
-        pass
-
 
 class LReLU(Layer):
     def __init__(self, alpha=1e-3):
+        super().__init__()
         self.alpha = alpha
         self.cache = None
 
@@ -137,13 +142,10 @@ class LReLU(Layer):
         dX[X < 0] *= self.alpha
         return dX
 
-    def sgd_update(self, alpha=1e-3):
-        # no parameters to update
-        pass
-
 
 class Sigmoid(Layer):
     def __init__(self):
+        super().__init__()
         self.cache = None
 
     def forward(self, X, train=False):
@@ -155,13 +157,10 @@ class Sigmoid(Layer):
         out = self.cache
         return out * (1. - out) * grad
 
-    def sgd_update(self, alpha=1e-3):
-        # no parameters to update
-        pass
-
 
 class MaxPooling(Layer):
     def __init__(self, size=2, stride=2):
+        super().__init__()
         self.size = size
         self.stride = stride
         self.cache = None
@@ -212,14 +211,11 @@ class MaxPooling(Layer):
 
         return dX
 
-    def sgd_update(self, alpha=1e-3):
-        # no parameters to update
-        pass
-
 
 class Dropout(Layer):
 
     def __init__(self, p):
+        super().__init__()
         self.p = p
         self.cache = None
 
@@ -238,12 +234,10 @@ class Dropout(Layer):
         dX = grad * u
         return dX
 
-    def sgd_update(self, alpha=1e-3):
-        pass
-
 
 class Flatten(Layer):
     def __init__(self):
+        super().__init__()
         self.cache = None
 
     def forward(self, X, train=False):
@@ -253,11 +247,6 @@ class Flatten(Layer):
     def backward(self, grad, train=False):
         X_shape = self.cache
         return grad.ravel().reshape(X_shape)
-
-    def sgd_update(self, alpha=1e-3):
-        pass
-
-
 
 
 

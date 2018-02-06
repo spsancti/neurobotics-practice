@@ -12,7 +12,7 @@ def load_object(filename):
         return pickle.load(input)
 
 def prepare_mnist():
-    mndata = mnist.MNIST('data', return_type='numpy', mode='vanilla')
+    mndata = mnist.MNIST('data/fashion', return_type='numpy', mode='vanilla')
     train, train_labels = mndata.load_training()
     test, test_labels = mndata.load_testing()
 
@@ -37,9 +37,9 @@ def prepare_mnist():
 def test_nn():
     train, train_labels, test, test_labels = prepare_mnist()
 
-    nn = load_object("/home/btymchenko/Discovery/Neurality/trained/new_mnist_keras__epoch_14_iter_400.pickle")
+    nn = load_object("/home/btymchenko/Discovery/Neurality/trained/fashion_epoch_10_iter_0.pickle")
 
-    n = 625
+    n = 1024
 
     X = np.asarray(test[:n])
     labels = test_labels[:n]
@@ -63,39 +63,42 @@ def train_nn():
 
     net = neural_net.AdvancedNN()
 
-    net.add(layers.Conv2D(32, 1, 3, 3))
+    net.add(layers.Conv2D(32, 1, 5, 5, padding=2))
     net.add(layers.LReLU())
+
+    net.add(layers.Conv2D(64, 32, 3, 3, padding=1))
+    net.add(layers.LReLU())
+
+    net.add(layers.MaxPooling(2, 2))
+
+    net.add(layers.Conv2D(32, 64, 5, 5, padding=2))
+    net.add(layers.LReLU())
+
     net.add(layers.MaxPooling(2, 2))
 
     net.add(layers.Flatten())
 
     net.add(layers.Dropout(0.25))
-    net.add(layers.Dense(32*14*14, 128))
+    net.add(layers.Dense(32*7*7, 128))
     net.add(layers.LReLU())
 
     net.add(layers.Dropout(0.5))
     net.add(layers.Dense(128, 10))
-    net.add(layers.ReLU())
+    net.add(layers.LReLU(alpha=0.1))
 
-    net = load_object("/home/btymchenko/Discovery/Neurality/trained/new_mnist_keras__epoch_14_iter_400.pickle")
+    #net = load_object("/home/btymchenko/Discovery/Neurality/trained/fashion_epoch_3_iter_0.pickle")
 
     tr.sgd(net,
            train,
            train_labels,
-           "/home/btymchenko/Discovery/Neurality/trained/new_mnist_keras_",
+           "/home/btymchenko/Discovery/Neurality/trained/fashion",
            val_set=(test, test_labels),
-           mb_size=128,
-           n_epoch=15,
-           alpha=1e-2,
-           save_after=100,
-           print_after=100,
+           n_epoch=10,
+           alpha=1e-3,
+           print_after=100
            )
-
-    # show this one!
-    #plt.imshow(image, cmap='gray')
-    plt.show()
 
 
 if __name__ == '__main__':
     train_nn()
-    # test_nn()
+    test_nn()
